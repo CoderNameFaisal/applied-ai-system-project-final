@@ -31,7 +31,9 @@ A: I included four main classes in my initial design:
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+A: One tradeoff is that conflict detection only compares neighboring timed tasks after sorting by start time, and untimed tasks are treated as flexible. This keeps the algorithm simple and fast for daily planning, but it does not model deeper constraints like travel time, owner energy, or pet-specific cooldown windows.
 - Why is that tradeoff reasonable for this scenario?
+A: This tradeoff is reasonable for the project scope because the goal is a readable and testable scheduling baseline. Adjacent-overlap checks catch the most common real conflicts with low complexity, which makes the behavior easier to explain in both the app UI and tests.
 
 ---
 

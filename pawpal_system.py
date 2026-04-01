@@ -6,9 +6,9 @@ Behavior focuses on practical scheduling for daily pet care planning.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time, timedelta
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 
 @dataclass
@@ -21,6 +21,8 @@ class CareTask:
     recurrence: str = "none"  # e.g., "none", "daily", "weekly"
     is_completed: bool = False
     start_date: date = field(default_factory=date.today)
+    start_time: Optional[Union[time, str]] = None
+    pet_name: Optional[str] = None
     last_completed_on: Optional[date] = None
 
     def __post_init__(self) -> None:
@@ -28,6 +30,9 @@ class CareTask:
         self.title = self.title.strip()
         self.priority = self.priority.strip().lower()
         self.recurrence = self.recurrence.strip().lower()
+
+        if isinstance(self.start_time, str):
+            self.start_time = time.fromisoformat(self.start_time)
 
         if not self.title:
             raise ValueError("Task title cannot be empty.")
@@ -52,16 +57,20 @@ class CareTask:
         if on_date < self.start_date:
             return False
 
+        # Completed tasks are historical records and should not be re-scheduled.
+        if self.is_completed:
+            return False
+
         if self.recurrence == "none":
-            return not self.is_completed
+            return True
 
         if self.recurrence == "daily":
-            return self.last_completed_on != on_date
+            return True
 
         # Weekly tasks recur on the same weekday as start_date.
         if on_date.weekday() != self.start_date.weekday():
             return False
-        return self.last_completed_on != on_date
+        return True
 
     def is_due_today(self) -> bool:
         """Return whether the task should run today."""
@@ -90,6 +99,7 @@ class Pet:
         """Add a care task for this pet."""
         if not isinstance(task, CareTask):
             raise TypeError("task must be a CareTask instance.")
+        task.pet_name = self.name
         self.tasks.append(task)
 
     def remove_task(self, task_title: str) -> bool:
@@ -108,6 +118,35 @@ class Pet:
         """Return tasks that are due on a given date."""
         target_date = on_date or date.today()
         return [task for task in self.tasks if task.is_due_on(target_date)]
+
+    def mark_task_complete(self, task_title: str, on_date: Optional[date] = None) -> Optional[CareTask]:
+        """Mark a task complete and create the next recurring instance when applicable."""
+        completed_on = on_date or date.today()
+        for task in self.tasks:
+            if task.title != task_title or task.is_completed:
+                continue
+
+            task.mark_complete(on_date=completed_on)
+
+            if task.recurrence == "daily":
+                next_start = completed_on + timedelta(days=1)
+            elif task.recurrence == "weekly":
+                next_start = completed_on + timedelta(days=7)
+            else:
+                return None
+
+            next_task = CareTask(
+                title=task.title,
+                duration_minutes=task.duration_minutes,
+                priority=task.priority,
+                recurrence=task.recurrence,
+                start_date=next_start,
+                start_time=task.start_time,
+            )
+            self.add_task(next_task)
+            return next_task
+
+        return None
 
 
 @dataclass
@@ -175,23 +214,143 @@ class Scheduler:
         """Initialize priority ranking used in task sorting."""
         self._priority_rank = {"high": 0, "medium": 1, "low": 2}
 
-    def generate_daily_plan(self, owner: Owner, on_date: Optional[date] = None) -> List[CareTask]:
+    def mark_task_complete(
+        self,
+        owner: Owner,
+        pet_name: str,
+        task_title: str,
+        on_date: Optional[date] = None,
+    ) -> Optional[CareTask]:
+        """Mark a task complete for a pet and auto-create next recurring instance."""
+        selected_pet = next(
+            (pet for pet in owner.pets if pet.name.lower() == pet_name.strip().lower()),
+            None,
+        )
+        if selected_pet is None:
+            raise ValueError(f"No pet named '{pet_name}' found.")
+        return selected_pet.mark_task_complete(task_title=task_title, on_date=on_date)
+
+    def generate_daily_plan(
+        self,
+        owner: Owner,
+        on_date: Optional[date] = None,
+        pet_name: Optional[str] = None,
+        status: str = "due",
+    ) -> List[CareTask]:
         """Generate a plan across all owner pets for the target date."""
         target_date = on_date or date.today()
-        due_tasks = owner.get_due_tasks(on_date=target_date)
-        sorted_tasks = self.sort_tasks(due_tasks)
-        return self.filter_by_available_time(sorted_tasks, owner.available_minutes_per_day)
+        owner_tasks = owner.get_all_tasks()
+        expanded_tasks = self.expand_recurring_tasks(owner_tasks, on_date=target_date)
+        filtered_tasks = self.filter_tasks(
+            expanded_tasks,
+            pet_name=pet_name,
+            status=status,
+            on_date=target_date,
+        )
+        sorted_tasks = self.sort_tasks(filtered_tasks)
+        conflict_free_tasks = self.remove_conflicting_tasks(sorted_tasks)
+        return self.filter_by_available_time(conflict_free_tasks, owner.available_minutes_per_day)
+
+    def expand_recurring_tasks(self, tasks: List[CareTask], on_date: Optional[date] = None) -> List[CareTask]:
+        """Return tasks that are eligible for scheduling on the target date."""
+        target_date = on_date or date.today()
+        return [task for task in tasks if task.is_due_on(target_date)]
+
+    def filter_tasks(
+        self,
+        tasks: List[CareTask],
+        pet_name: Optional[str] = None,
+        status: str = "due",
+        on_date: Optional[date] = None,
+    ) -> List[CareTask]:
+        """Filter tasks by pet and status for the selected date."""
+        target_date = on_date or date.today()
+        filtered_tasks = tasks
+
+        if pet_name and pet_name.strip().lower() != "all":
+            selected_pet = pet_name.strip().lower()
+            filtered_tasks = [
+                task for task in filtered_tasks if (task.pet_name or "").strip().lower() == selected_pet
+            ]
+
+        status_key = status.strip().lower()
+        if status_key == "completed":
+            filtered_tasks = [task for task in filtered_tasks if task.is_completed]
+        elif status_key == "incomplete":
+            filtered_tasks = [task for task in filtered_tasks if not task.is_completed]
+        elif status_key == "due":
+            filtered_tasks = [task for task in filtered_tasks if task.is_due_on(target_date)]
+        else:
+            raise ValueError("status must be one of: due, completed, incomplete.")
+
+        return filtered_tasks
 
     def sort_tasks(self, tasks: List[CareTask]) -> List[CareTask]:
-        """Return tasks sorted by priority, then shorter duration, then title."""
+        """Return tasks sorted by time first, then priority, duration, and title."""
         return sorted(
             tasks,
             key=lambda task: (
+                task.start_time.strftime("%H:%M") if task.start_time else "99:99",
                 self._priority_rank.get(task.priority, 3),
                 task.duration_minutes,
                 task.title.lower(),
             ),
         )
+
+    def sort_by_time(self, tasks: List[CareTask]) -> List[CareTask]:
+        """Return tasks sorted by HH:MM start_time, placing untimed tasks last."""
+        return sorted(
+            tasks,
+            key=lambda task: task.start_time.strftime("%H:%M") if task.start_time else "99:99",
+        )
+
+    def detect_conflicts(self, tasks: List[CareTask]) -> List[Tuple[CareTask, CareTask]]:
+        """Detect overlaps between timed tasks."""
+        timed_tasks = sorted(
+            (task for task in tasks if task.start_time is not None),
+            key=lambda task: task.start_time,
+        )
+
+        conflicts: List[Tuple[CareTask, CareTask]] = []
+        for previous, current in zip(timed_tasks, timed_tasks[1:]):
+
+            previous_end_minutes = (
+                previous.start_time.hour * 60
+                + previous.start_time.minute
+                + previous.duration_minutes
+            )
+            current_start_minutes = current.start_time.hour * 60 + current.start_time.minute
+
+            if current_start_minutes < previous_end_minutes:
+                conflicts.append((previous, current))
+
+        return conflicts
+
+    def remove_conflicting_tasks(self, tasks: List[CareTask]) -> List[CareTask]:
+        """Keep tasks in order, skipping timed tasks that overlap already-selected tasks."""
+        selected_tasks: List[CareTask] = []
+        for task in tasks:
+            if task.start_time is None:
+                selected_tasks.append(task)
+                continue
+
+            task_start_minutes = task.start_time.hour * 60 + task.start_time.minute
+            task_end_minutes = task_start_minutes + task.duration_minutes
+
+            overlaps_existing = False
+            for chosen_task in selected_tasks:
+                if chosen_task.start_time is None:
+                    continue
+                chosen_start = chosen_task.start_time.hour * 60 + chosen_task.start_time.minute
+                chosen_end = chosen_start + chosen_task.duration_minutes
+                if task_start_minutes < chosen_end and chosen_start < task_end_minutes:
+                    overlaps_existing = True
+                    break
+
+            if not overlaps_existing:
+                selected_tasks.append(task)
+
+        return selected_tasks
 
     def filter_by_available_time(self, tasks: List[CareTask], minutes: int) -> List[CareTask]:
         """Keep tasks that fit in the time budget."""
@@ -213,7 +372,8 @@ class Scheduler:
         total_minutes = sum(task.duration_minutes for task in plan)
         titles = ", ".join(task.title for task in plan)
         return (
-            "Plan built by sorting tasks by priority, then duration, and keeping only tasks "
-            f"that fit your time budget. Total scheduled time: {total_minutes} minutes. "
+            "Plan built by sorting tasks by time, then priority and duration, filtering by pet/status, "
+            "and keeping non-conflicting tasks within your time budget. "
+            f"Total scheduled time: {total_minutes} minutes. "
             f"Tasks: {titles}."
         )

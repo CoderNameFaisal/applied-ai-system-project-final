@@ -22,6 +22,16 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+The scheduler now includes several practical planning upgrades:
+
+- Time-aware sorting: tasks are ordered by start time (HH:MM), then priority and duration.
+- Pet and status filters: schedules can be generated for a specific pet and by task status (`due`, `incomplete`, `completed`).
+- Recurring task handling: daily and weekly tasks are expanded for the target date.
+- Auto-rescheduling on completion: when a daily/weekly task is completed, a new task instance is created for the next occurrence.
+- Basic conflict detection: overlapping timed tasks are detected, and conflicting tasks can be skipped in the generated plan.
+
 ## Getting started
 
 ### Setup
