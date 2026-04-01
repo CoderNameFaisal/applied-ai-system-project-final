@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import time, timedelta, datetime
 
 from pawpal_system import CareTask, Owner, Pet, Scheduler
 
@@ -134,7 +135,7 @@ with col4:
 with col5:
     has_start_time = st.checkbox("Set start time", value=False)
 
-task_start_time = st.time_input("Start time", value="09:00") if has_start_time else None
+task_start_time = st.time_input("Start time", value=time(9, 0)) if has_start_time else None
 
 if st.button("Add task"):
     try:
@@ -182,25 +183,70 @@ with filter_col1:
 with filter_col2:
     selected_status_filter = st.selectbox("Filter by status", ["due", "incomplete", "completed"])
 
+
+def _format_end_time(task: CareTask) -> str:
+    if not task.start_time:
+        return "N/A"
+    start_dt = datetime.combine(datetime.today(), task.start_time)
+    end_dt = start_dt + timedelta(minutes=task.duration_minutes)
+    return end_dt.strftime("%H:%M")
+
 if st.button("Generate schedule"):
-    plan = st.session_state.scheduler.generate_daily_plan(
-        current_owner,
-        pet_name=selected_pet_filter,
-        status=selected_status_filter,
-    )
     all_due_filtered = st.session_state.scheduler.filter_tasks(
         st.session_state.scheduler.expand_recurring_tasks(current_owner.get_all_tasks()),
         pet_name=selected_pet_filter,
         status=selected_status_filter,
     )
-    conflicts = st.session_state.scheduler.detect_conflicts(all_due_filtered)
-    if conflicts:
-        st.warning(
-            "Conflicts detected: "
-            + ", ".join(
-                f"{first.title} overlaps with {second.title}" for first, second in conflicts
-            )
+
+    sorted_filtered = st.session_state.scheduler.sort_tasks(all_due_filtered)
+    st.success(f"Filtered tasks ready: {len(sorted_filtered)}")
+    if sorted_filtered:
+        st.write("Filtered + Sorted Task Preview")
+        st.table(
+            [
+                {
+                    "pet": task.pet_name or "Unknown",
+                    "title": task.title,
+                    "start_time": task.start_time.strftime("%H:%M") if task.start_time else "Anytime",
+                    "end_time": _format_end_time(task),
+                    "duration_minutes": task.duration_minutes,
+                    "priority": task.priority,
+                    "status": "completed" if task.is_completed else "incomplete",
+                }
+                for task in sorted_filtered
+            ]
         )
+
+    conflicts = st.session_state.scheduler.detect_conflicts(sorted_filtered)
+    if conflicts:
+        conflict_rows = [
+            {
+                "first_task": first.title,
+                "first_window": (
+                    f"{first.start_time.strftime('%H:%M')} - {_format_end_time(first)}"
+                    if first.start_time
+                    else "N/A"
+                ),
+                "second_task": second.title,
+                "second_window": (
+                    f"{second.start_time.strftime('%H:%M')} - {_format_end_time(second)}"
+                    if second.start_time
+                    else "N/A"
+                ),
+                "tip": "Adjust start time or shorten one task.",
+            }
+            for first, second in conflicts
+        ]
+        st.warning(
+            "Scheduling conflict detected. Review overlapping tasks below and adjust time or duration."
+        )
+        st.table(conflict_rows)
+
+    plan = st.session_state.scheduler.generate_daily_plan(
+        current_owner,
+        pet_name=selected_pet_filter,
+        status=selected_status_filter,
+    )
 
     if not plan:
         st.warning("No tasks fit within the current schedule constraints.")

@@ -5,18 +5,27 @@ classDiagram
       name: String
       availableMinutesPerDay: int
       preferences: String
+      pets: List~Pet~
+      __post_init__(): void
       addPet(pet: Pet): void
+      removePet(petName: String): bool
       setAvailability(minutes: int): void
       setPreferences(preferences: String): void
+      getAllTasks(): List~CareTask~
+      getDueTasks(onDate: date): List~CareTask~
     }
 
     class Pet {
       name: String
       species: String
       age: int
+      tasks: List~CareTask~
+      __post_init__(): void
       addTask(task: CareTask): void
-      removeTask(taskTitle: String): void
+      removeTask(taskTitle: String): bool
       getTasks(): List~CareTask~
+      getDueTasks(onDate: date): List~CareTask~
+      markTaskComplete(taskTitle: String, onDate: date): CareTask
     }
 
     class CareTask {
@@ -25,19 +34,33 @@ classDiagram
       priority: String
       recurrence: String
       isCompleted: bool
-      markComplete(): void
+      startDate: date
+      startTime: time
+      petName: String
+      lastCompletedOn: date
+      __post_init__(): void
+      markComplete(onDate: date): void
+      markIncomplete(): void
+      isDueOn(onDate: date): bool
       isDueToday(): bool
     }
 
     class Scheduler {
-      generateDailyPlan(owner: Owner, pet: Pet): List~CareTask~
+      _priorityRank: dict
+      markTaskComplete(owner: Owner, petName: String, taskTitle: String, onDate: date): CareTask
+      generateDailyPlan(owner: Owner, onDate: date, petName: String, status: String): List~CareTask~
+      expandRecurringTasks(tasks: List~CareTask~, onDate: date): List~CareTask~
+      filterTasks(tasks: List~CareTask~, petName: String, status: String, onDate: date): List~CareTask~
       sortTasks(tasks: List~CareTask~): List~CareTask~
+      sortByTime(tasks: List~CareTask~): List~CareTask~
+      detectConflicts(tasks: List~CareTask~): List~Tuple~
+      removeConflictingTasks(tasks: List~CareTask~): List~CareTask~
       filterByAvailableTime(tasks: List~CareTask~, minutes: int): List~CareTask~
       explainPlan(plan: List~CareTask~): String
     }
 
-    Owner "1" o-- "1..*" Pet : has
+    Owner "1" o-- "0..*" Pet : has
     Pet "1" *-- "0..*" CareTask : includes
     Scheduler ..> Owner : uses constraints
     Scheduler ..> Pet : reads tasks
-    Scheduler ..> CareTask : schedules
+    Scheduler ..> CareTask : schedules/conflict-checks

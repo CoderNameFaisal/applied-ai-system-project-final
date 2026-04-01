@@ -22,15 +22,20 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
-## Smarter Scheduling
+## Features
 
-The scheduler now includes several practical planning upgrades:
+- Daily schedule generation: builds a plan across all pets while respecting the owner's available minutes per day.
+- Time-first sorting: orders tasks by HH:MM start time, then by priority, duration, and title for stable output.
+- Pet and status filtering: supports targeted views by pet name and task status (`due`, `incomplete`, `completed`).
+- Recurrence expansion: includes only tasks due on the selected date, with support for `none`, `daily`, and `weekly` recurrence.
+- Completion rollover for recurring tasks: completing a daily or weekly task automatically creates the next scheduled instance.
+- Conflict detection: flags overlapping timed tasks based on start time and duration.
+- Conflict-aware planning: removes overlapping timed tasks while preserving schedule order for remaining tasks.
+- Plan explanation output: summarizes why tasks were chosen and reports total scheduled minutes.
 
-- Time-aware sorting: tasks are ordered by start time (HH:MM), then priority and duration.
-- Pet and status filters: schedules can be generated for a specific pet and by task status (`due`, `incomplete`, `completed`).
-- Recurring task handling: daily and weekly tasks are expanded for the target date.
-- Auto-rescheduling on completion: when a daily/weekly task is completed, a new task instance is created for the next occurrence.
-- Basic conflict detection: overlapping timed tasks are detected, and conflicting tasks can be skipped in the generated plan.
+## 📸 Demo
+
+<a href="/course_images/ai110/pawpalplus.png" target="_blank"><img src='/course_images/ai110/pawpalplus.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
 
 ## Getting started
 
