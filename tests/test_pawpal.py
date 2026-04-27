@@ -1,5 +1,4 @@
 from datetime import date, timedelta, time
-
 from pawpal import CareTask, Owner, Pet, Scheduler
 
 
@@ -12,7 +11,7 @@ def test_mark_complete_updates_task_status() -> None:
 
 
 def test_add_task_increases_pet_task_count() -> None:
-    pet = Pet(name="Mochi", species="dog", age=3)
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
     starting_count = len(pet.tasks)
 
     pet.add_task(CareTask(title="Walk", duration_minutes=20, priority="medium"))
@@ -48,8 +47,8 @@ def test_sort_tasks_orders_by_start_time() -> None:
 def test_filter_tasks_by_pet_and_status() -> None:
     scheduler = Scheduler()
     owner = Owner(name="Jordan", available_minutes_per_day=120)
-    dog = Pet(name="Mochi", species="dog", age=3)
-    cat = Pet(name="Luna", species="cat", age=5)
+    dog = Pet(name="Mochi", species="dog", breed="shiba inu", age=3)
+    cat = Pet(name="Luna", species="cat", breed="tabby", age=5)
 
     dog_task = CareTask(title="Walk", duration_minutes=20, priority="high")
     cat_task = CareTask(title="Feed Cat", duration_minutes=10, priority="medium")
@@ -125,7 +124,7 @@ def test_detect_conflicts_finds_overlapping_timed_tasks() -> None:
 
 
 def test_mark_task_complete_creates_next_daily_instance() -> None:
-    pet = Pet(name="Mochi", species="dog", age=3)
+    pet = Pet(name="Mochi", species="dog", breed="beagle", age=3)
     today = date.today()
     pet.add_task(
         CareTask(
@@ -148,7 +147,7 @@ def test_mark_task_complete_creates_next_daily_instance() -> None:
 
 
 def test_mark_task_complete_creates_next_weekly_instance() -> None:
-    pet = Pet(name="Luna", species="cat", age=5)
+    pet = Pet(name="Luna", species="cat", breed="siamese", age=5)
     today = date.today()
     pet.add_task(
         CareTask(
@@ -173,7 +172,7 @@ def test_mark_task_complete_creates_next_weekly_instance() -> None:
 def test_generate_daily_plan_returns_empty_for_pet_with_no_tasks() -> None:
     scheduler = Scheduler()
     owner = Owner(name="Jordan", available_minutes_per_day=60)
-    owner.add_pet(Pet(name="Mochi", species="dog", age=3))
+    owner.add_pet(Pet(name="Mochi", species="dog", breed="labrador", age=3))
 
     plan = scheduler.generate_daily_plan(owner)
 
@@ -200,3 +199,20 @@ def test_detect_conflicts_flags_tasks_with_exact_same_start_time() -> None:
     assert len(conflicts) == 1
     assert conflicts[0][0].title == "Breakfast"
     assert conflicts[0][1].title == "Medication"
+
+
+def test_pet_requires_non_empty_breed() -> None:
+    try:
+        Pet(name="Mochi", species="dog", breed="  ", age=2)
+        raise AssertionError("Expected ValueError for empty breed.")
+    except ValueError as error:
+        assert "breed" in str(error).lower()
+
+
+def test_set_start_time_str_updates_and_clears_time() -> None:
+    task = CareTask(title="Walk", duration_minutes=20, priority="high")
+    task.set_start_time_str("08:15")
+    assert task.start_time is not None
+    assert task.start_time.strftime("%H:%M") == "08:15"
+    task.set_start_time_str("")
+    assert task.start_time is None

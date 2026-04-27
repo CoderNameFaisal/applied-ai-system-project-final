@@ -52,6 +52,17 @@ class CareTask:
         """Reset completion state for one-time tasks or edits."""
         self.is_completed = False
 
+    def set_start_time_str(self, value: Optional[str]) -> None:
+        """Set start_time from HH:MM text, or clear it with None/empty."""
+        if value is None:
+            self.start_time = None
+            return
+        cleaned = value.strip()
+        if not cleaned:
+            self.start_time = None
+            return
+        self.start_time = time.fromisoformat(cleaned)
+
     def is_due_on(self, on_date: date) -> bool:
         """Return whether the task should run on a specific date."""
         if on_date < self.start_date:
@@ -83,15 +94,21 @@ class Pet:
 
     name: str
     species: str
+    breed: str
     age: int
+    habits: str = ""
     tasks: List[CareTask] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate and normalize pet fields after initialization."""
         self.name = self.name.strip()
         self.species = self.species.strip().lower()
+        self.breed = self.breed.strip()
+        self.habits = self.habits.strip()
         if not self.name:
             raise ValueError("Pet name cannot be empty.")
+        if not self.breed:
+            raise ValueError("Pet breed cannot be empty.")
         if self.age < 0:
             raise ValueError("Pet age cannot be negative.")
 

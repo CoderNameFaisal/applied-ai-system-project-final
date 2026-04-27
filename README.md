@@ -1,98 +1,120 @@
-# PawPal+ (Module 2 Project)
+# PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+PawPal+ is a Streamlit app that helps a pet owner build a realistic daily care schedule. It combines deterministic scheduling rules with optional AI features:
+
+- Agentic explanation for generated plans.
+- RAG-backed natural language intake that can update preferences and add tasks.
+- RAG-backed conflict resolution suggestions for overlapping timed tasks.
 
 ## Project structure
 
 ```text
 .
-├── assets/                    # Visual assets (versioned with the repo)
-│   ├── architecture/         # UML and system / domain diagrams
-│   └── screenshots/          # App screenshots and demos
-├── docs/                      # Design notes, UML source, reflection
-│   ├── Mermaid.txt           # Mermaid diagram source
-│   └── reflection.md
-├── pawpal/                    # Core Python package
-│   ├── __init__.py
-│   └── system.py             # CareTask, Pet, Owner, Scheduler
-├── tests/
-│   └── test_pawpal.py
-├── app.py                    # Streamlit entry point
-├── main.py                   # Example data and CLI-style usage
+├── app.py
+├── main.py
 ├── requirements.txt
-└── README.md
+├── README.md
+├── .env.example
+├── assets/
+│   ├── architecture/
+│   └── screenshots/
+├── docs/
+├── knowledge/                 # Committed RAG source documents
+├── scripts/
+│   └── ingest_rag.py          # Builds local Chroma index
+├── pawpal/
+│   ├── __init__.py
+│   ├── system.py
+│   ├── config.py
+│   ├── logging_utils.py
+│   └── ai/
+│       ├── client.py
+│       ├── vectorstore.py
+│       ├── plan_explainer.py
+│       ├── rag_intake.py
+│       └── conflict_rag.py
+└── tests/
+    ├── test_pawpal.py
+    └── test_ai_features.py
 ```
 
-## Scenario
+## What the app does
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+- Captures owner constraints and pet profiles (species, breed, age, optional habits).
+- Lets users create and manage care tasks with duration, priority, recurrence, and optional start time.
+- Generates daily plans with filtering, sorting, conflict checks, and time-budget enforcement.
+- Uses AI to explain plans in context of the active owner and pets.
+- Uses RAG to turn natural-language requests into real task/preference updates.
+- Uses RAG to suggest conflict time moves and apply those changes directly in app state.
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+## Setup (reproducible)
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
-
-## What you will build
-
-Your final app should:
-
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
-
-## Features
-
-- Daily schedule generation: builds a plan across all pets while respecting the owner's available minutes per day.
-- Time-first sorting: orders tasks by HH:MM start time, then by priority, duration, and title for stable output.
-- Pet and status filtering: supports targeted views by pet name and task status (`due`, `incomplete`, `completed`).
-- Recurrence expansion: includes only tasks due on the selected date, with support for `none`, `daily`, and `weekly` recurrence.
-- Completion rollover for recurring tasks: completing a daily or weekly task automatically creates the next scheduled instance.
-- Conflict detection: flags overlapping timed tasks based on start time and duration.
-- Conflict-aware planning: removes overlapping timed tasks while preserving schedule order for remaining tasks.
-- Plan explanation output: summarizes why tasks were chosen and reports total scheduled minutes.
-
-## Architecture and demo assets
-
-- **UML / system diagram:** `assets/architecture/uml_final.png`
-- **App screenshot (demo):** `assets/screenshots/pawpalplus.png`
-
-## Demo
-
-![PawPal+ app screenshot](assets/screenshots/pawpalplus.png)
-
-## Getting started
-
-### Setup
+### 1) Create and activate a virtual environment
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```
+
+### 2) Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### Run the app
+### 3) Configure environment
 
-From the project root (so the `pawpal` package resolves correctly):
+Copy `.env.example` to `.env` and set your key:
+
+```bash
+cp .env.example .env
+```
+
+Required:
+
+- `OPENAI_API_KEY`
+
+Optional:
+
+- `OPENAI_MODEL` (default: `gpt-4.1-mini`)
+- `OPENAI_EMBEDDING_MODEL` (default: `text-embedding-3-small`)
+- `PAWPAL_LOG_LEVEL` (default: `INFO`)
+
+### 4) Build the local RAG index
+
+Run once after setup, and whenever files in `knowledge/` change:
+
+```bash
+python scripts/ingest_rag.py
+```
+
+This writes the local vector index under `data/chroma/` (ignored by git).
+
+## Run the app
 
 ```bash
 streamlit run app.py
 ```
 
-### Run tests
+The app still runs without an API key for deterministic scheduling, but AI sections are disabled with clear guardrail messages.
+
+## Run tests
 
 ```bash
 python -m pytest
 ```
 
-### Suggested workflow
+- Core scheduler tests are deterministic.
+- AI tests use mocks and do not call external APIs.
 
-1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships); store exports under `assets/architecture/` and source in `docs/` as needed.
-3. Convert UML into Python class stubs in `pawpal/system.py` (no logic yet).
-4. Implement scheduling logic in small increments.
-5. Add tests in `tests/` to verify key behaviors.
-6. Connect your logic to the Streamlit UI in `app.py`.
-7. Refine UML so it matches what you actually built.
+## Logging and guardrails
+
+- AI paths use bounded retries and timeout-backed OpenAI client calls.
+- Agent loops are turn-limited to prevent runaway behavior.
+- Domain mutations from AI output only happen through validated `Owner`, `Pet`, and `CareTask` methods.
+- App-level fallbacks keep deterministic schedule functionality available if AI is unavailable.
+
+## Assets
+
+- UML diagram: `assets/architecture/uml_final.png`
+- App screenshot: `assets/screenshots/pawpalplus.png`

@@ -1,7 +1,12 @@
+from datetime import datetime, time, timedelta
+
 import streamlit as st
-from datetime import time, timedelta, datetime
 
 from pawpal import CareTask, Owner, Pet, Scheduler
+from pawpal.ai.conflict_rag import apply_conflict_moves, propose_conflict_resolution
+from pawpal.ai.plan_explainer import explain_plan_with_agent
+from pawpal.ai.rag_intake import apply_rag_intake
+from pawpal.config import load_settings
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -42,6 +47,7 @@ At minimum, your system should:
 st.divider()
 
 st.subheader("Owner Setup")
+settings = load_settings()
 
 # Persist core domain objects across Streamlit reruns.
 if "owners_by_name" not in st.session_state:
@@ -54,6 +60,8 @@ if "current_owner_key" not in st.session_state and st.session_state.owners_by_na
 
 if "scheduler" not in st.session_state:
     st.session_state.scheduler = Scheduler()
+if "conflict_suggestion" not in st.session_state:
+    st.session_state.conflict_suggestion = None
 
 owner_options = [owner.name for owner in st.session_state.owners_by_name.values()]
 selected_owner_name = st.selectbox("Saved owners", owner_options)
@@ -80,11 +88,17 @@ with owner_action_col1:
             st.success(f"Created owner: {new_owner.name}")
 
 with owner_action_col2:
-    if st.button("Save preferences"):
-        st.success("Owner preferences saved.")
+    st.caption("Preferences are now persisted from the text area below.")
 
 current_owner = st.session_state.owners_by_name[st.session_state.current_owner_key]
-current_owner.set_preferences("Use priority-first scheduling")
+preferences_input = st.text_area(
+    "Owner preferences",
+    value=current_owner.preferences,
+    help="Scheduling preferences or constraints, for example: prioritize mornings, avoid evenings.",
+)
+if st.button("Apply owner preferences"):
+    current_owner.set_preferences(preferences_input)
+    st.success("Owner preferences saved.")
 
 availability = st.number_input(
     "Available minutes per day",
@@ -95,17 +109,28 @@ availability = st.number_input(
 current_owner.set_availability(int(availability))
 
 st.markdown("### Add a Pet")
-pet_col1, pet_col2, pet_col3 = st.columns(3)
+pet_col1, pet_col2, pet_col3, pet_col4 = st.columns(4)
 with pet_col1:
     pet_name = st.text_input("Pet name", value="Mochi")
 with pet_col2:
     species = st.selectbox("Species", ["dog", "cat", "other"])
 with pet_col3:
+    breed = st.text_input("Breed", value="Mixed")
+with pet_col4:
     age = st.number_input("Age", min_value=0, max_value=40, value=1)
+habits = st.text_area("Habits (optional)", value="")
 
 if st.button("Add pet"):
     try:
-        current_owner.add_pet(Pet(name=pet_name, species=species, age=int(age)))
+        current_owner.add_pet(
+            Pet(
+                name=pet_name,
+                species=species,
+                breed=breed,
+                age=int(age),
+                habits=habits,
+            )
+        )
         st.success(f"Added pet for {current_owner.name}: {pet_name}")
     except ValueError as error:
         st.warning(str(error))
@@ -170,6 +195,27 @@ if current_tasks:
     )
 else:
     st.info("No tasks yet. Add one above.")
+
+st.divider()
+st.subheader("Natural language (AI + RAG)")
+nl_request = st.text_area(
+    "Describe updates you want (preferences/tasks).",
+    help="Example: Add a 15 minute evening walk for Mochi and prioritize morning feed windows.",
+)
+if not settings.openai_api_key:
+    st.info("Set OPENAI_API_KEY in .env to enable AI intake and conflict suggestions.")
+if st.button("Apply with AI (RAG)", disabled=not bool(settings.openai_api_key)):
+    try:
+        intake_result = apply_rag_intake(current_owner, nl_request)
+        if intake_result.applied_actions:
+            st.success("Applied actions: " + ", ".join(intake_result.applied_actions))
+        else:
+            st.warning("No valid actions were returned by the AI.")
+        st.caption(intake_result.explanation)
+        if intake_result.citations:
+            st.caption("Knowledge sources: " + ", ".join(intake_result.citations))
+    except Exception as error:  # pragma: no cover - streamlit runtime guard
+        st.error(f"AI intake failed: {error}")
 
 st.divider()
 
@@ -241,6 +287,31 @@ if st.button("Generate schedule"):
             "Scheduling conflict detected. Review overlapping tasks below and adjust time or duration."
         )
         st.table(conflict_rows)
+        if settings.openai_api_key:
+            if st.button("Suggest conflict fix (RAG)"):
+                try:
+                    st.session_state.conflict_suggestion = propose_conflict_resolution(current_owner, conflicts)
+                except Exception as error:  # pragma: no cover - streamlit runtime guard
+                    st.error(f"Conflict RAG failed: {error}")
+            suggestion = st.session_state.conflict_suggestion
+            if suggestion:
+                st.caption(suggestion.explanation)
+                if suggestion.citations:
+                    st.caption("Knowledge sources: " + ", ".join(suggestion.citations))
+                if suggestion.moves:
+                    st.table(suggestion.moves)
+                    if st.button("Apply suggested times"):
+                        applied = apply_conflict_moves(current_owner, suggestion.moves)
+                        if applied:
+                            st.success("Applied updates: " + ", ".join(applied))
+                        else:
+                            st.warning("No suggested moves could be applied.")
+                else:
+                    st.warning("No schedule move suggestions were generated.")
+        else:
+            st.info("Add OPENAI_API_KEY to enable RAG conflict suggestions.")
+    else:
+        st.session_state.conflict_suggestion = None
 
     plan = st.session_state.scheduler.generate_daily_plan(
         current_owner,
@@ -265,4 +336,13 @@ if st.button("Generate schedule"):
                 for task in plan
             ]
         )
-        st.caption(st.session_state.scheduler.explain_plan(plan))
+        stub_explanation = st.session_state.scheduler.explain_plan(plan)
+        try:
+            agent_explanation = explain_plan_with_agent(current_owner, plan, scheduler_stub=stub_explanation)
+            st.markdown("### Agent plan explanation")
+            st.write(agent_explanation)
+        except Exception as error:  # pragma: no cover - streamlit runtime guard
+            st.warning(f"Agent explanation unavailable: {error}")
+            st.caption(stub_explanation)
+        with st.expander("Deterministic scheduler explanation"):
+            st.caption(stub_explanation)

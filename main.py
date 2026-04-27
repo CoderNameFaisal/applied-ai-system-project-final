@@ -4,8 +4,8 @@ from pawpal import CareTask, Owner, Pet, Scheduler
 def build_sample_data() -> Owner:
     owner = Owner(name="Jordan", available_minutes_per_day=75, preferences="Morning first")
 
-    dog = Pet(name="Mochi", species="dog", age=3)
-    cat = Pet(name="Luna", species="cat", age=5)
+    dog = Pet(name="Mochi", species="dog", breed="golden retriever", age=3, habits="Loves fetch")
+    cat = Pet(name="Luna", species="cat", breed="domestic shorthair", age=5, habits="Hides at noon")
 
     # Add tasks out of time order to validate sorting behavior.
     dog.add_task(
