@@ -1,6 +1,6 @@
 from datetime import date, timedelta, time
 
-from pawpal_system import CareTask, Owner, Pet, Scheduler
+from pawpal import CareTask, Owner, Pet, Scheduler
 
 
 def test_mark_complete_updates_task_status() -> None:

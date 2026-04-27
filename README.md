@@ -2,6 +2,27 @@
 
 You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
 
+## Project structure
+
+```text
+.
+├── assets/                    # Visual assets (versioned with the repo)
+│   ├── architecture/         # UML and system / domain diagrams
+│   └── screenshots/          # App screenshots and demos
+├── docs/                      # Design notes, UML source, reflection
+│   ├── Mermaid.txt           # Mermaid diagram source
+│   └── reflection.md
+├── pawpal/                    # Core Python package
+│   ├── __init__.py
+│   └── system.py             # CareTask, Pet, Owner, Scheduler
+├── tests/
+│   └── test_pawpal.py
+├── app.py                    # Streamlit entry point
+├── main.py                   # Example data and CLI-style usage
+├── requirements.txt
+└── README.md
+```
+
 ## Scenario
 
 A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
@@ -33,9 +54,14 @@ Your final app should:
 - Conflict-aware planning: removes overlapping timed tasks while preserving schedule order for remaining tasks.
 - Plan explanation output: summarizes why tasks were chosen and reports total scheduled minutes.
 
-## 📸 Demo
+## Architecture and demo assets
 
-<a href="/course_images/ai110/pawpalplus.png" target="_blank"><img src='/course_images/ai110/pawpalplus.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+- **UML / system diagram:** `assets/architecture/uml_final.png`
+- **App screenshot (demo):** `assets/screenshots/pawpalplus.png`
+
+## Demo
+
+![PawPal+ app screenshot](assets/screenshots/pawpalplus.png)
 
 ## Getting started
 
@@ -47,12 +73,26 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Run the app
+
+From the project root (so the `pawpal` package resolves correctly):
+
+```bash
+streamlit run app.py
+```
+
+### Run tests
+
+```bash
+python -m pytest
+```
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships).
-3. Convert UML into Python class stubs (no logic yet).
+2. Draft a UML diagram (classes, attributes, methods, relationships); store exports under `assets/architecture/` and source in `docs/` as needed.
+3. Convert UML into Python class stubs in `pawpal/system.py` (no logic yet).
 4. Implement scheduling logic in small increments.
-5. Add tests to verify key behaviors.
+5. Add tests in `tests/` to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.

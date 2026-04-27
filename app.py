@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import time, timedelta, datetime
 
-from pawpal_system import CareTask, Owner, Pet, Scheduler
+from pawpal import CareTask, Owner, Pet, Scheduler
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 

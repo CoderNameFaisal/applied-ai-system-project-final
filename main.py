@@ -1,4 +1,4 @@
-from pawpal_system import CareTask, Owner, Pet, Scheduler
+from pawpal import CareTask, Owner, Pet, Scheduler
 
 
 def build_sample_data() -> Owner:
