@@ -293,3 +293,32 @@ def test_remove_task_returns_false_for_missing_task() -> None:
     removed = pet.remove_task("Does not exist")
     assert removed is False
     assert len(pet.tasks) == 1
+
+
+def test_generate_daily_plan_enforces_available_minutes_limit() -> None:
+    scheduler = Scheduler()
+    owner = Owner(name="Jordan", available_minutes_per_day=30)
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    pet.add_task(CareTask(title="Morning walk", duration_minutes=20, priority="high", start_time=time(8, 0)))
+    pet.add_task(CareTask(title="Breakfast", duration_minutes=15, priority="high", start_time=time(9, 0)))
+    pet.add_task(CareTask(title="Play", duration_minutes=10, priority="medium"))
+    owner.add_pet(pet)
+
+    plan = scheduler.generate_daily_plan(owner)
+
+    assert [task.title for task in plan] == ["Morning walk", "Play"]
+    assert sum(task.duration_minutes for task in plan) <= owner.available_minutes_per_day
+
+
+def test_generate_daily_plan_removes_conflicting_tasks() -> None:
+    scheduler = Scheduler()
+    owner = Owner(name="Jordan", available_minutes_per_day=120)
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    pet.add_task(CareTask(title="Medication", duration_minutes=30, priority="high", start_time=time(9, 0)))
+    pet.add_task(CareTask(title="Vet call", duration_minutes=15, priority="high", start_time=time(9, 10)))
+    pet.add_task(CareTask(title="Lunch", duration_minutes=15, priority="medium", start_time=time(10, 0)))
+    owner.add_pet(pet)
+
+    plan = scheduler.generate_daily_plan(owner)
+
+    assert [task.title for task in plan] == ["Medication", "Lunch"]

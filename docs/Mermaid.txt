@@ -1,66 +1,99 @@
 classDiagram
     direction LR
 
+    class App {
+      +run() void
+      +renderUI() void
+      +handleUserActions() void
+    }
+
     class Owner {
-      name: String
-      availableMinutesPerDay: int
-      preferences: String
-      pets: List~Pet~
-      __post_init__(): void
-      addPet(pet: Pet): void
-      removePet(petName: String): bool
-      setAvailability(minutes: int): void
-      setPreferences(preferences: String): void
-      getAllTasks(): List~CareTask~
-      getDueTasks(onDate: date): List~CareTask~
+      +name: str
+      +available_minutes_per_day: int
+      +preferences: str
+      +pets: List~Pet~
+      +add_pet(pet) void
+      +get_all_tasks() List~CareTask~
     }
 
     class Pet {
-      name: String
-      species: String
-      age: int
-      tasks: List~CareTask~
-      __post_init__(): void
-      addTask(task: CareTask): void
-      removeTask(taskTitle: String): bool
-      getTasks(): List~CareTask~
-      getDueTasks(onDate: date): List~CareTask~
-      markTaskComplete(taskTitle: String, onDate: date): CareTask
+      +name: str
+      +species: str
+      +breed: str
+      +age: int
+      +tasks: List~CareTask~
+      +add_task(task) void
+      +get_due_tasks(on_date) List~CareTask~
     }
 
     class CareTask {
-      title: String
-      durationMinutes: int
-      priority: String
-      recurrence: String
-      isCompleted: bool
-      startDate: date
-      startTime: time
-      petName: String
-      lastCompletedOn: date
-      __post_init__(): void
-      markComplete(onDate: date): void
-      markIncomplete(): void
-      isDueOn(onDate: date): bool
-      isDueToday(): bool
+      +title: str
+      +duration_minutes: int
+      +priority: str
+      +recurrence: str
+      +start_time: time
+      +is_due_on(on_date) bool
+      +mark_complete(on_date) void
     }
 
     class Scheduler {
-      _priorityRank: dict
-      markTaskComplete(owner: Owner, petName: String, taskTitle: String, onDate: date): CareTask
-      generateDailyPlan(owner: Owner, onDate: date, petName: String, status: String): List~CareTask~
-      expandRecurringTasks(tasks: List~CareTask~, onDate: date): List~CareTask~
-      filterTasks(tasks: List~CareTask~, petName: String, status: String, onDate: date): List~CareTask~
-      sortTasks(tasks: List~CareTask~): List~CareTask~
-      sortByTime(tasks: List~CareTask~): List~CareTask~
-      detectConflicts(tasks: List~CareTask~): List~Tuple~
-      removeConflictingTasks(tasks: List~CareTask~): List~CareTask~
-      filterByAvailableTime(tasks: List~CareTask~, minutes: int): List~CareTask~
-      explainPlan(plan: List~CareTask~): String
+      +generate_daily_plan(owner, on_date) List~CareTask~
+      +detect_conflicts(tasks) List~tuple~
+      +filter_by_available_time(tasks, minutes) List~CareTask~
     }
 
+    class RAGUtils {
+      +retrieve_knowledge(query, top_k) tuple
+      +normalize_priority(value) str
+      +sanitize_duration(value) int
+    }
+
+    class VectorStore {
+      +upsert_chunks(chunks) int
+      +retrieve_chunks(query, top_k) List~RetrievedChunk~
+    }
+
+    class AIClient {
+      +get_openai_client() OpenAI
+      +call_with_retries(callable_fn, retries) Any
+    }
+
+    class PlanExplainer {
+      +explain_plan(owner, plan) str
+    }
+
+    class TaskSuggestionAgent {
+      +suggest_tasks_with_rag(owner, pet) SuggestionResult
+      +apply_suggested_tasks(pet, suggestions) tuple
+    }
+
+    class ScheduleValidator {
+      +validate_schedule_with_rag(owner, plan) ValidationResult
+    }
+
+    class PytestSuite {
+      +test_pawpal.py
+      +test_ai_features.py
+      +test_ai_client.py
+    }
+
+    App ..> Owner : captures input
+    App ..> Scheduler : generates plan
+    App ..> PlanExplainer : optional explanation
+    App ..> TaskSuggestionAgent : optional suggestions
+    App ..> ScheduleValidator : optional validation
+
     Owner "1" o-- "0..*" Pet : has
-    Pet "1" *-- "0..*" CareTask : includes
-    Scheduler ..> Owner : uses constraints
-    Scheduler ..> Pet : reads tasks
-    Scheduler ..> CareTask : schedules/conflict-checks
+    Pet "1" *-- "0..*" CareTask : contains
+    Scheduler ..> Owner : reads constraints
+    Scheduler ..> CareTask : sorts/conflict checks
+
+    PlanExplainer ..> RAGUtils : retrieves evidence
+    TaskSuggestionAgent ..> RAGUtils : retrieves evidence
+    ScheduleValidator ..> RAGUtils : retrieves evidence
+    RAGUtils ..> VectorStore : vector retrieval
+    VectorStore ..> AIClient : embeddings API calls
+
+    PytestSuite ..> Scheduler : verifies planning logic
+    PytestSuite ..> RAGUtils : verifies fallback retrieval
+    PytestSuite ..> AIClient : verifies retry/auth behavior

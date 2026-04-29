@@ -93,3 +93,65 @@ A: I would redesign task identity and persistence by adding unique IDs and stora
 
 - What is one important thing you learned about designing systems or working with AI on this project?
 A: I learned that AI is most valuable when I treat it as a collaborator for iteration, not as an autopilot. The best results came from combining AI-generated ideas with clear constraints, small testable steps, and human judgment about simplicity versus complexity.
+
+---
+
+## 6. AI Responsibility and Ethics
+
+**a. What are the limitations or biases in your system?**
+
+PawPal+ uses the Gemini API to give scheduling suggestions. This means the system has real problems that I need to be honest about:
+
+1. **Bias from Training Data**: The AI learned from stuff on the internet. More common pet types (dogs, cats) probably get better advice than rare or exotic pets. Advice that works for most dogs might be wrong for a specific dog.
+
+2. **One-Size-Fits-All Advice**: The system doesn't know if a pet is young or old, has health problems, allergies, or takes medicine. A suggestion that "grooming takes 30 minutes" might be way too long for a nervous dog that needs calm preparation.
+
+3. **No Real Veterinary Information**: The AI can't access up-to-date vet guidelines. If new safety concerns come out about a food type, the AI might not know.
+
+4. **Basic Keyword Matching Falls Back**: When the vector database failed, the system fell back to simple keyword matching in local knowledge files. Sometimes this finds relevant results by accident rather than real understanding.
+
+**b. Could your AI be misused, and how would you prevent that?**
+
+Yes, there are real risks:
+
+**Risk 1: Bad Health Advice**
+- *What could go wrong*: An owner follows AI suggestions that hurt their pet (wrong food, wrong medicine timing).
+- *How to prevent it*:
+  - The app says "suggestions only" not "medical advice"—clear warning on the screen.
+  - Pop-up message: "Always talk to your vet before changing your pet's food or medicine."
+  - Tests check that suggestions only come from safe, local knowledge files.
+  - When the API is down, the system uses our known-safe local knowledge base, not guesses.
+
+**Risk 2: Owner Ignores Real Problems**
+- *What could go wrong*: Owner trusts the AI schedule without thinking, misses that a pet is stressed or sick.
+- *How to prevent it*:
+  - Every plan shows why it was created ("prioritizing high-need tasks that fit in 2 hours").
+  - Owner has to click "apply" before anything changes—system doesn't auto-apply.
+  - The scheduler enforces a time limit so owners can't schedule impossible days.
+
+**Risk 3: False Trust in the System**
+- *What could go wrong*: Owner thinks the AI knows everything about their pet and stops paying attention to their pet's signals.
+- *How to prevent it*:
+  - System is designed to suggest, not decide. Owner always has the final say.
+  - When tests run, they show that the system only suggests what's in our safe local knowledge.
+
+**c. What surprised you while testing AI's reliability?**
+
+1. **Silent Failures Hurt More Than Loud Failures**: At first, when API keys expired, the system would quietly keep trying instead of giving up. That made owners think it was working when it wasn't. Once I made the system immediately reject bad auth errors, failures became clear and honest. Frustrating but better.
+
+2. **Embedding Models Just Weren't There**: I expected certain AI models to exist for text embedding (converting words to numbers). They didn't. But I found out that simple keyword matching from local files worked surprisingly well and was actually more transparent to the user.
+
+3. **Fake Testing Is Better Than Real API Calls**: I thought real tests that call the actual API would be more thorough. They weren't—they were slow and broke when the API changed. Fake tests (where I make up responses) were faster and forced me to think about what the system should do if the API fails. That turned out to be important.
+
+4. **Systems Work Better Without Complexity**: A simple system that gracefully falls back when things fail is better than a fancy system that breaks when one thing goes wrong.
+
+**d. Describe your collaboration with AI during this project. One helpful instance and one flawed instance.**
+
+**A Time the AI Helped**:
+I asked the AI how to test the system without making real API calls. The AI suggested using a Python feature called `monkeypatch` to replace real functions with fake ones that return test data. This let my tests run in 0.1 seconds instead of 5 seconds, and tests didn't break when the API changed. The suggestion also showed how to structure fake data so it matched what the real API returns. This was genuinely smart.
+
+**A Time the AI Was Wrong**:
+Early on, I asked the AI about error handling. It suggested I build something called "exponential backoff with circuit breaker patterns"—basically: if something fails, wait longer before retrying, and if it keeps failing, give up entirely. This is what big tech companies do. But for my project, it was overkill. The real answer was simpler: *if the API says the auth key is bad (error 401), fail immediately instead of waiting*. I had to tell the AI: "Stop. I don't need production-grade complexity. I need the simple solution." Once I was clear about that, the AI helped me do it right.
+
+**The Main Thing I Learned About Working With AI**:
+The AI is best when I give it clear constraints. Vague requests produce over-engineered answers. Specific requests ("test without real API calls" or "fast-fail for permanent errors") produce elegant solutions.
