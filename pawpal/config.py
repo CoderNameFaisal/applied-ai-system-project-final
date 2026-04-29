@@ -31,10 +31,10 @@ def load_settings() -> Settings:
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
     ai_key = gemini_key if provider == "gemini" else openai_key
-    ai_model = os.getenv("AI_MODEL", "gemini-2.0-flash" if provider == "gemini" else "gpt-4.1-mini").strip()
+    ai_model = os.getenv("AI_MODEL", "gemini-2.0-flash" if provider == "gemini" else "gpt-4o-mini").strip()
     ai_embedding_model = os.getenv(
         "AI_EMBEDDING_MODEL",
-        "text-embedding-004" if provider == "gemini" else "text-embedding-3-small",
+        "text-embedding-001" if provider == "gemini" else "text-embedding-3-small",
     ).strip()
     ai_base_url = (
         "https://generativelanguage.googleapis.com/v1beta/openai/"
