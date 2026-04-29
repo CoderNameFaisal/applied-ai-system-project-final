@@ -58,8 +58,9 @@ def _parse_time_value(value: str | None) -> time | None:
 
 def apply_rag_intake(owner: Owner, user_prompt: str) -> IntakeResult:
     settings = load_settings()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for RAG intake.")
+    if not settings.ai_api_key:
+        key_name = "GEMINI_API_KEY" if settings.ai_provider == "gemini" else "OPENAI_API_KEY"
+        raise RuntimeError(f"{key_name} is required for RAG intake.")
     if not user_prompt.strip():
         raise ValueError("Prompt cannot be empty.")
 
@@ -98,7 +99,7 @@ def apply_rag_intake(owner: Owner, user_prompt: str) -> IntakeResult:
 
     def _request() -> Any:
         return client.chat.completions.create(
-            model=settings.openai_model,
+            model=settings.ai_model,
             messages=messages,
             temperature=0,
             max_tokens=700,

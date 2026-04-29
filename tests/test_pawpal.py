@@ -1,4 +1,5 @@
 from datetime import date, timedelta, time
+from pawpal.ai.profile_scheduler import generate_profile_schedule_for_pet
 from pawpal import CareTask, Owner, Pet, Scheduler
 
 
@@ -216,3 +217,79 @@ def test_set_start_time_str_updates_and_clears_time() -> None:
     assert task.start_time.strftime("%H:%M") == "08:15"
     task.set_start_time_str("")
     assert task.start_time is None
+
+
+def test_generate_profile_schedule_for_dog_uses_profile_preferences() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=120)
+    pet = Pet(
+        name="Mochi",
+        species="dog",
+        breed="corgi",
+        age=3,
+        habits="Favorite toy: Rope\nFavorite food: Salmon kibble",
+    )
+    owner.add_pet(pet)
+
+    added = generate_profile_schedule_for_pet(owner, pet)
+
+    assert "Play session (Rope)" in added
+    assert "Breakfast (Salmon kibble)" in added
+    assert "Dinner (Salmon kibble)" in added
+    assert any(task.title == "Morning walk" for task in pet.tasks)
+
+
+def test_generate_profile_schedule_skips_existing_titles() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=120)
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    pet.add_task(CareTask(title="Morning walk", duration_minutes=20, priority="high", recurrence="daily"))
+    owner.add_pet(pet)
+
+    added = generate_profile_schedule_for_pet(owner, pet)
+
+    assert "Morning walk" not in added
+
+
+def test_generate_profile_schedule_applies_owner_preferences_morning_first() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=120, preferences="prioritize mornings")
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    owner.add_pet(pet)
+
+    generate_profile_schedule_for_pet(owner, pet)
+
+    morning_walk = next(task for task in pet.tasks if task.title == "Morning walk")
+    assert morning_walk.start_time is not None
+    assert morning_walk.start_time.strftime("%H:%M") == "07:45"
+
+
+def test_generate_profile_schedule_applies_owner_preferences_avoid_evenings() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=120, preferences="avoid evenings")
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    owner.add_pet(pet)
+
+    generate_profile_schedule_for_pet(owner, pet)
+
+    dinner = next(task for task in pet.tasks if task.title == "Dinner")
+    evening_walk = next(task for task in pet.tasks if task.title == "Evening walk")
+    assert dinner.start_time is not None
+    assert evening_walk.start_time is not None
+    assert dinner.start_time.strftime("%H:%M") == "17:00"
+    assert evening_walk.start_time.strftime("%H:%M") == "17:30"
+
+
+def test_remove_task_removes_existing_task() -> None:
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    pet.add_task(CareTask(title="Walk", duration_minutes=20, priority="high"))
+    pet.add_task(CareTask(title="Feed", duration_minutes=10, priority="medium"))
+
+    removed = pet.remove_task("Walk")
+    assert removed is True
+    assert [t.title for t in pet.tasks] == ["Feed"]
+
+
+def test_remove_task_returns_false_for_missing_task() -> None:
+    pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
+    pet.add_task(CareTask(title="Walk", duration_minutes=20, priority="high"))
+
+    removed = pet.remove_task("Does not exist")
+    assert removed is False
+    assert len(pet.tasks) == 1

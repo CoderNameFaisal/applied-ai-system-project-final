@@ -30,8 +30,9 @@ def _task_window(task: CareTask) -> str:
 
 def propose_conflict_resolution(owner: Owner, conflicts: list[tuple[CareTask, CareTask]]) -> ConflictSuggestion:
     settings = load_settings()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for conflict RAG.")
+    if not settings.ai_api_key:
+        key_name = "GEMINI_API_KEY" if settings.ai_provider == "gemini" else "OPENAI_API_KEY"
+        raise RuntimeError(f"{key_name} is required for conflict RAG.")
     if not conflicts:
         return ConflictSuggestion(moves=[], explanation="No conflicts to resolve.", citations=[])
 
@@ -69,7 +70,7 @@ def propose_conflict_resolution(owner: Owner, conflicts: list[tuple[CareTask, Ca
 
     def _request() -> Any:
         return client.chat.completions.create(
-            model=settings.openai_model,
+            model=settings.ai_model,
             messages=messages,
             temperature=0,
             max_tokens=500,

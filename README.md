@@ -3,8 +3,9 @@
 PawPal+ is a Streamlit app that helps a pet owner build a realistic daily care schedule. It combines deterministic scheduling rules with optional AI features:
 
 - Agentic explanation for generated plans.
-- RAG-backed natural language intake that can update preferences and add tasks.
-- RAG-backed conflict resolution suggestions for overlapping timed tasks.
+- Retrieval-only RAG care tips grounded in local knowledge files.
+- RAG task suggestions with safe one-click apply and fallback behavior.
+- RAG schedule validation with reliability scoring and citations.
 
 ## Project structure
 
@@ -31,8 +32,10 @@ PawPal+ is a Streamlit app that helps a pet owner build a realistic daily care s
 │       ├── client.py
 │       ├── vectorstore.py
 │       ├── plan_explainer.py
-│       ├── rag_intake.py
-│       └── conflict_rag.py
+│       ├── rag_utils.py
+│       ├── rag_tips.py
+│       ├── rag_task_suggestions.py
+│       └── rag_schedule_validator.py
 └── tests/
     ├── test_pawpal.py
     └── test_ai_features.py
@@ -40,12 +43,14 @@ PawPal+ is a Streamlit app that helps a pet owner build a realistic daily care s
 
 ## What the app does
 
-- Captures owner constraints and pet profiles (species, breed, age, optional habits).
+- Captures owner constraints and pet profiles (species, breed, age).
 - Lets users create and manage care tasks with duration, priority, recurrence, and optional start time.
 - Generates daily plans with filtering, sorting, conflict checks, and time-budget enforcement.
 - Uses AI to explain plans in context of the active owner and pets.
-- Uses RAG to turn natural-language requests into real task/preference updates.
-- Uses RAG to suggest conflict time moves and apply those changes directly in app state.
+- Auto-generates starter tasks from pet profile (species, breed, age) and applies owner time preferences.
+- Shows retrieval-only RAG care tips for the selected pet with source citations.
+- Generates RAG-backed task suggestions and supports validated one-click apply.
+- Validates generated schedules with RAG context and a reliability score.
 
 ## Setup (reproducible)
 
@@ -64,20 +69,18 @@ pip install -r requirements.txt
 
 ### 3) Configure environment
 
-Copy `.env.example` to `.env` and set your key:
+Copy `.env.example` to `.env` and optionally set your key:
 
 ```bash
 cp .env.example .env
 ```
 
-Required:
-
-- `OPENAI_API_KEY`
-
 Optional:
 
-- `OPENAI_MODEL` (default: `gpt-4.1-mini`)
-- `OPENAI_EMBEDDING_MODEL` (default: `text-embedding-3-small`)
+- `GEMINI_API_KEY` (enables LLM-enhanced explanation/suggestions/validation)
+- `AI_PROVIDER` (`gemini` default, `openai` also supported)
+- `AI_MODEL` (default: `gemini-2.0-flash`)
+- `AI_EMBEDDING_MODEL` (default: `text-embedding-004`)
 - `PAWPAL_LOG_LEVEL` (default: `INFO`)
 
 ### 4) Build the local RAG index
@@ -96,7 +99,7 @@ This writes the local vector index under `data/chroma/` (ignored by git).
 streamlit run app.py
 ```
 
-The app still runs without an API key for deterministic scheduling, but AI sections are disabled with clear guardrail messages.
+The app runs without an API key using deterministic scheduling and retrieval fallbacks; LLM-enhanced sections degrade gracefully when unavailable.
 
 ## Run tests
 

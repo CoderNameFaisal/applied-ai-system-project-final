@@ -28,7 +28,7 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
     client = get_openai_client()
 
     def _request() -> list[list[float]]:
-        response = client.embeddings.create(model=settings.openai_embedding_model, input=texts)
+        response = client.embeddings.create(model=settings.ai_embedding_model, input=texts)
         return [row.embedding for row in response.data]
 
     return call_with_retries(_request)

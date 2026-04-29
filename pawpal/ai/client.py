@@ -15,9 +15,15 @@ logger = get_logger("pawpal.ai.client")
 
 def get_openai_client() -> OpenAI:
     settings = load_settings()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is not configured.")
-    return OpenAI(api_key=settings.openai_api_key, timeout=30.0, max_retries=0)
+    if not settings.ai_api_key:
+        key_name = "GEMINI_API_KEY" if settings.ai_provider == "gemini" else "OPENAI_API_KEY"
+        raise RuntimeError(f"{key_name} is not configured.")
+    return OpenAI(
+        api_key=settings.ai_api_key,
+        base_url=settings.ai_base_url,
+        timeout=30.0,
+        max_retries=0,
+    )
 
 
 def call_with_retries(callable_fn: Any, retries: int = 2, backoff_seconds: float = 1.0) -> Any:

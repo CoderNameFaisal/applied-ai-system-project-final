@@ -49,7 +49,7 @@ def explain_plan_with_agent(owner: Owner, plan: list[CareTask], scheduler_stub: 
     if not plan:
         return scheduler_stub
     settings = load_settings()
-    if not settings.openai_api_key:
+    if not settings.ai_api_key:
         return scheduler_stub
 
     tools = [
@@ -107,7 +107,7 @@ def explain_plan_with_agent(owner: Owner, plan: list[CareTask], scheduler_stub: 
 
         def _request() -> Any:
             return client.chat.completions.create(
-                model=settings.openai_model,
+                model=settings.ai_model,
                 temperature=0.2,
                 messages=messages,
                 tools=tools,
