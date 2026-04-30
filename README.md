@@ -7,7 +7,7 @@ My original project from Modules 1-3 was **PawPal**, a deterministic pet-care sc
 **PawPal+** is a Streamlit app that combines rule-based scheduling with retrieval-augmented AI features. It matters because pet owners need plans that are both realistic and explainable, not just random suggestions. The system can still function when AI services fail by falling back to local retrieval and deterministic scheduling.
 
 ## Project Video (Loom)
-Loom walkthrough: [Add your Loom link here](https://www.loom.com/)
+Loom walkthrough: [Watch the project demonstration](https://www.loom.com/share/2bbcbb2756b34c80a58f2163775ce1c2)
 
 
 ## Architecture Overview
