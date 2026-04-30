@@ -63,19 +63,29 @@ def test_get_care_tips_uses_retrieval(monkeypatch) -> None:
     owner = Owner(name="Jordan", available_minutes_per_day=90)
     pet = Pet(name="Mochi", species="dog", breed="corgi", age=3)
     owner.add_pet(pet)
+
+    calls = {"count": 0}
+
+    def _mock_retrieve(*_args, **_kwargs):
+        calls["count"] += 1
+        rows = [
+            SimpleNamespace(text="Walk daily.", source="knowledge/care_basics.md", score=0.9),
+            SimpleNamespace(text="Keep routines consistent.", source="knowledge/profile_adjustments.md", score=0.7),
+        ]
+        return (rows, False, "fallback")
+
     monkeypatch.setattr(
         "pawpal.ai.rag_tips.retrieve_knowledge",
-        lambda *_args, **_kwargs: (
-            [SimpleNamespace(text="Walk daily.", source="knowledge/care_basics.md", score=0.9)],
-            False,
-            "fallback",
-        ),
+        _mock_retrieve,
     )
 
     result = get_care_tips(owner, pet, top_k=1)
 
     assert len(result.tips) == 1
-    assert result.tips[0].text == "Walk daily."
+    assert "corgi" in result.tips[0].text.lower()
+    assert "age 3" in result.tips[0].text.lower()
+    assert "walk daily." in result.tips[0].text.lower()
+    assert calls["count"] == 3
     assert result.note == "fallback"
 
 
